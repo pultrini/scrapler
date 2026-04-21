@@ -1,6 +1,9 @@
 package spiders
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -10,6 +13,23 @@ import (
 )
 
 type VunespSpider struct {
+	existentes map[string]bool
+}
+
+func (v *VunespSpider) loadExistentes() {
+	v.existentes = make(map[string]bool)
+
+	data, err := os.ReadFile("out.json")
+	if err != nil {
+		return
+	}
+	var concursos []models.Concurso
+	if err := json.Unmarshal(data, &concursos); err != nil {
+		return
+	}
+	for _, c := range concursos {
+		v.existentes[c.Link] = true
+	}
 }
 
 func (v *VunespSpider) Name() string {
@@ -25,6 +45,7 @@ func (v *VunespSpider) parse(g *geziyor.Geziyor, r *client.Response) {
 
 		concursos.Titulo = strings.TrimSpace(s.Find(".titulo").Text())
 		concursos.Escolaridade = strings.TrimSpace(s.Find(".escolaridade").Text())
+		concursos.Origem = v.Name()
 
 		s.Find(".course-informations .negrito").Each(func(i int, n *goquery.Selection) {
 			text := strings.TrimSpace(n.Text())
@@ -45,11 +66,40 @@ func (v *VunespSpider) parse(g *geziyor.Geziyor, r *client.Response) {
 		if link, ok := s.Find(".read-more-box a").Attr("href"); ok {
 			u, _ := r.Request.URL.Parse(link)
 			concursos.Link = u.String()
+			c := concursos
+			v.fetchEdital(g, c)
 		}
-		concursos.Origem = v.Name()
+	})
+}
 
-		if concursos.Titulo != "" {
-			g.Exports <- concursos
+type VunespDocumento struct {
+	Titulo string `json:"titulo"`
+	URL    string `json:"url"`
+}
+
+func (v *VunespSpider) fetchEdital(g *geziyor.Geziyor, c models.Concurso) {
+
+	if v.existentes[c.Link] {
+		return
+	}
+
+	parts := strings.Split(strings.TrimRight(c.Link, "/"), "/")
+	sigla := parts[len(parts)-1]
+
+	apiURL := fmt.Sprintf("https://documento.vunesp.com.br/projeto/%s/documento/", sigla)
+
+	g.Get(apiURL, func(g *geziyor.Geziyor, r *client.Response) {
+		r.HTMLDoc.Find("a[href*='documento/stream']").Each(func(i int, s *goquery.Selection) {
+			title, _ := s.Attr("title")
+			if strings.Contains(strings.ToLower(title), "edital de abertura") {
+				if href, ok := s.Attr("href"); ok {
+					c.EditalLink = href
+				}
+			}
+		})
+
+		if c.Titulo != "" {
+			g.Exports <- c
 		}
 	})
 }
