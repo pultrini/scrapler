@@ -23,12 +23,21 @@ func (v *VunespSpider) loadExistentes() {
 	if err != nil {
 		return
 	}
-	var concursos []models.Concurso
-	if err := json.Unmarshal(data, &concursos); err != nil {
-		return
-	}
-	for _, c := range concursos {
-		v.existentes[c.Link] = true
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || line == "[" || line == "]" {
+			continue
+		}
+		line = strings.TrimSuffix(line, ",")
+
+		var c models.Concurso
+		if err := json.Unmarshal([]byte(line), &c); err != nil {
+			continue
+		}
+		if c.Origem == v.Name() {
+			v.existentes[c.Titulo] = true
+		}
 	}
 }
 
@@ -36,6 +45,7 @@ func (v *VunespSpider) Name() string {
 	return "vunesp"
 }
 func (v *VunespSpider) StartsRequests(g *geziyor.Geziyor) {
+	v.loadExistentes()
 	g.Get("https://www.vunesp.com.br/busca/concurso/inscricoes%20abertas", v.parse)
 }
 
@@ -79,7 +89,7 @@ type VunespDocumento struct {
 
 func (v *VunespSpider) fetchEdital(g *geziyor.Geziyor, c models.Concurso) {
 
-	if v.existentes[c.Link] {
+	if v.existentes[c.Titulo] {
 		return
 	}
 

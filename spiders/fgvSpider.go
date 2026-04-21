@@ -23,14 +23,20 @@ func (f *FGVSpider) loadExistentes() {
 		return
 	}
 
-	var concursos []models.Concurso
-	if err := json.Unmarshal(data, &concursos); err != nil {
-		return
-	}
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || line == "[" || line == "]" {
+			continue
+		}
+		line = strings.TrimSuffix(line, ",")
 
-	for _, c := range concursos {
+		var c models.Concurso
+		if err := json.Unmarshal([]byte(line), &c); err != nil {
+			continue
+		}
 		if c.Origem == f.Name() {
-			f.existentes[c.Link] = true
+			f.existentes[c.Titulo] = true
 		}
 	}
 }
@@ -55,8 +61,7 @@ func (f *FGVSpider) parse(g *geziyor.Geziyor, r *client.Response) {
 			u, _ := r.Request.URL.Parse(link)
 			concurso.Link = u.String()
 
-			// Pula se já existe
-			if f.existentes[concurso.Link] {
+			if f.existentes[concurso.Titulo] {
 				return
 			}
 
