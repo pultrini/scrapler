@@ -8,4 +8,5 @@ type Concurso struct {
 	ResumoVaga   string `json:"resumo_vaga"`
 	Link         string `json:"link"`
 	Origem       string `json:"origem"`
+	EditalLink   string `json:"edital-link"`
 }

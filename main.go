@@ -7,4 +7,5 @@ import (
 
 func main() {
 	core.Run(&spiders.VunespSpider{})
+	core.Run(&spiders.FGVSpider{})
 }
