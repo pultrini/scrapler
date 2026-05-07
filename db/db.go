@@ -11,6 +11,12 @@ import (
 	"github.com/pultrini/scrapler/models"
 )
 
+type PostgresStorage struct{}
+
+func (p *PostgresStorage) InsertConcurso(c models.Concurso) error {
+	return InsertConcurso(c)
+}
+
 var DB *sql.DB
 
 func Connect(connStr string) {
